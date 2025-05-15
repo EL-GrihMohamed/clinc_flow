@@ -576,33 +576,60 @@
   [resizable]="false"
 >
   <div class="flex flex-col items-center">
-    <div class="scanner-container border-2 border-dashed border-gray-300 p-4 rounded-lg mb-4 text-center" style="height: 250px;">
-      <div *ngIf="!scanningInProgress" class="h-full flex flex-col items-center justify-center">
-        <i class="pi pi-camera text-5xl text-gray-400 mb-2"></i>
-        <p class="text-gray-500">Camera feed will appear here</p>
-      </div>
-      <div *ngIf="scanningInProgress" class="h-full flex flex-col items-center justify-center">
-        <p-progressSpinner [style]="{width: '50px', height: '50px'}" styleClass="mb-2"></p-progressSpinner>
-        <p class="text-gray-700">Scanning CIN card...</p>
+    <!-- Camera Selection Dropdown -->
+    <div *ngIf="scannerDeviceOptions.length > 1" class="mb-4 w-full px-4">
+      <label for="camera-select" class="block mb-2">Select Camera</label>
+      <p-dropdown 
+        [options]="scannerDeviceOptions"
+        [(ngModel)]="selectedCamera"
+        optionLabel="label"
+        optionValue="value"
+        (onChange)="onCameraSelect()"
+        placeholder="Choose a camera"
+        class="w-full"
+      ></p-dropdown>
+    </div>
+
+    <!-- Scanner Component -->
+    <zxing-scanner 
+      #cinScanner
+      [device]="selectedCamera"
+      [formats]="allowedFormats"
+      [torch]="false"
+      (scanSuccess)="onCinScanSuccess($event)"
+      (scanError)="onScanError($event)"
+      class="w-full max-h-[300px]"
+    ></zxing-scanner>
+
+    <!-- Scan Result or Instructions -->
+    <div class="mt-4 text-center">
+      <p *ngIf="!scannedCinData" class="text-gray-500">
+        Position the CIN card within the camera frame
+      </p>
+      <div *ngIf="scannedCinData" class="mt-2">
+        <p class="font-bold text-green-600">CIN Scanned Successfully!</p>
+        <p>CIN: {{ scannedCinData.cin }}</p>
       </div>
     </div>
-    
-    <div class="flex gap-2">
+
+    <!-- Action Buttons -->
+    <div class="flex gap-2 mt-4">
       <p-button 
-        icon="pi pi-camera" 
-        label="Start Scanning" 
-        [disabled]="scanningInProgress" 
-        (onClick)="startScanning()"
+        label="Cancel" 
+        icon="pi pi-times" 
+        [outlined]="true" 
+        (click)="closeCinScannerDialog()"
       ></p-button>
       <p-button 
-        icon="pi pi-times" 
-        label="Cancel" 
-        [outlined]="true" 
-        (onClick)="closeScannerDialog()"
+        *ngIf="scannedCinData" 
+        label="Use Scanned Data" 
+        icon="pi pi-check" 
+        (click)="confirmCinScanData()"
       ></p-button>
     </div>
   </div>
 </p-dialog>
+
 
 <!-- Confirmation Dialog -->
 <p-confirmDialog [style]="{ width: '450px' }"></p-confirmDialog>

@@ -1,4 +1,4 @@
-import { Component, signal, ViewChild, OnInit, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, signal, ViewChild, OnInit, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
@@ -27,6 +27,10 @@ import { TimelineModule } from 'primeng/timeline';
 import { CardModule } from 'primeng/card';
 import { DividerModule } from 'primeng/divider';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+
+// ZXing Imports
+import { ZXingScannerComponent, ZXingScannerModule } from '@zxing/ngx-scanner';
+import { BarcodeFormat } from '@zxing/library';
 
 import { ConfirmationService, MessageService, MenuItem } from 'primeng/api';
 import { HttpClient } from '@angular/common/http';
@@ -65,8 +69,9 @@ interface Column {
     TimelineModule,
     CardModule,
     DividerModule,
-    ProgressSpinnerModule
-],
+    ProgressSpinnerModule,
+    ZXingScannerModule
+  ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './patients.component.html',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -116,6 +121,7 @@ interface Column {
   `
 })
 export class PatientsComponent implements OnInit {
+
   // Table configuration
   cols!: Column[];
   patients = signal<Patient[]>([]);
@@ -151,6 +157,19 @@ export class PatientsComponent implements OnInit {
   
   // Table reference for export
   @ViewChild('dt') dt!: Table;
+
+  // ZXing Scanner Properties
+   @ViewChild('cinScanner', { static: false }) cinScanner!: ZXingScannerComponent;
+  availableCameras: MediaDeviceInfo[] = [];
+  scannerDeviceOptions: { label: string, value: MediaDeviceInfo }[] = [];
+  selectedCamera?: MediaDeviceInfo;
+  scannerEnabled = false;
+  scannedCinData: Partial<Patient> | null = null;
+  allowedFormats = [
+    BarcodeFormat.QR_CODE, 
+    BarcodeFormat.DATA_MATRIX, 
+    BarcodeFormat.PDF_417
+  ];
 
   // Search functionality
   searchCin: string = '';
@@ -192,7 +211,91 @@ export class PatientsComponent implements OnInit {
     // Load doctors for dropdown
     this.loadDoctors();
   }
+ ngAfterViewInit() {
+    // Detect available cameras
+    if (this.cinScanner) {
+      this.cinScanner.camerasFound.subscribe((cameras: MediaDeviceInfo[]) => {
+        this.availableCameras = cameras;
+        
+        // Create dropdown options for cameras
+        this.scannerDeviceOptions = cameras.map((camera, index) => ({
+          label: camera.label || `Camera ${index + 1}`,
+          value: camera
+        }));
+        
+        // Automatically select the first camera if available
+        if (cameras.length > 0) {
+          this.selectedCamera = cameras[0];
+        }
+      });
 
+      // Handle camera not found scenario
+      this.cinScanner.camerasNotFound.subscribe(() => {
+        this.messageService.add({
+          severity: 'warn', 
+          summary: 'Camera', 
+          detail: 'No cameras found', 
+          life: 3000 
+        });
+      });
+    }
+  }
+onCameraSelect() {
+    // Method to handle camera selection
+    if (this.cinScanner && this.selectedCamera) {
+      this.cinScanner.device = this.selectedCamera;
+    }
+  }
+  openCinScanner() {
+    this.scannerDialog = true;
+    this.scanningInProgress = false;
+    this.scanningComplete = false;
+    this.scannerEnabled = true;
+    this.scannedCinData = null;
+  }
+  onCinScanSuccess(result: string) {
+    try {
+      // Parse the scanned data
+      const parsedData = this.parseCinData(result);
+      
+      if (parsedData) {
+        this.scannedCinData = parsedData;
+        
+        this.messageService.add({
+          severity: 'success', 
+          summary: 'Scan Successful', 
+          detail: 'CIN Card data captured', 
+          life: 3000 
+        });
+      }
+    } catch (error) {
+      console.error('Scan processing error', error);
+      this.messageService.add({
+        severity: 'error', 
+        summary: 'Scan Error', 
+        detail: 'Unable to process scanned data', 
+        life: 3000 
+      });
+    }
+  }
+onCinScanError(error: any) {
+    console.error('Scanning error', error);
+    this.messageService.add({
+      severity: 'warn', 
+      summary: 'Scan Error', 
+      detail: 'Error during scanning', 
+      life: 3000 
+    });
+  }
+  confirmCinScanData() {
+    if (this.scannedCinData) {
+      // Update patient object with scanned data
+      this.patient = { ...this.patient, ...this.scannedCinData };
+      
+      // Close the scanner dialog
+      this.closeCinScannerDialog();
+    }
+  }
   // Add this method to fix the "new Date()" issues
   getCurrentDate(): Date {
     return new Date();
@@ -806,47 +909,76 @@ export class PatientsComponent implements OnInit {
     }
   }
 
-  // CIN Card Scanner Methods
-  openCinScanner() {
-    this.scannerDialog = true;
-    this.scanningInProgress = false;
-    this.scanningComplete = false;
-  }
+  // Enhanced CIN Card Scanner Methods
+  
+  onCameraScan(result: string) {
+    // Process the scanned result
+    try {
+      this.scanningInProgress = true;
 
-  startScanning() {
-    this.scanningInProgress = true;
-    
-    // Simulate scanning process
-    setTimeout(() => {
-      // In a real app, this would call a service to handle the camera and OCR
-      const mockedCinData = {
-        cin: 'AB123456',
-        firstName: 'Mohammed',
-        lastName: 'El Amrani',
-        dateOfBirth: new Date(1990, 5, 15),
+      // Parse the scanned data (adjust based on your expected format)
+      const scannedData = this.parseCinData(result);
+
+      if (scannedData) {
+        // Update patient object with scanned data
+        this.patient = { ...this.patient, ...scannedData };
+
+        this.scanningInProgress = false;
+        this.scanningComplete = true;
+
+        this.messageService.add({
+          severity: 'success', 
+          summary: 'Scan Successful', 
+          detail: 'CIN Card data captured', 
+          life: 3000 
+        });
+
+        // Close scanner dialog after a short delay
+        setTimeout(() => this.closeCinScannerDialog(), 1500);
+      }
+    } catch (error) {
+      this.messageService.add({
+        severity: 'error', 
+        summary: 'Scan Error', 
+        detail: 'Unable to process scanned data', 
+        life: 3000 
+      });
+      this.scanningInProgress = false;
+    }
+  }
+  onScanError(error: any) {
+    console.error('Scanning error', error);
+    this.messageService.add({
+      severity: 'warn', 
+      summary: 'Scan Error', 
+      detail: 'Error during scanning', 
+      life: 3000 
+    });
+  }
+  parseCinData(result: string): Partial<Patient> | null {
+    // This is a mock implementation. 
+    // In a real-world scenario, you'd have specific parsing logic
+    try {
+      // Example parsing logic - adjust based on your actual CIN card format
+      const parsedData: Partial<Patient> = {
+        cin: result, // For demonstration
+        firstName: 'Mohammed', // Mock data
+        lastName: 'El Amrani', // Mock data
+        dateOfBirth: new Date(1990, 5, 15), // Mock data
         address: '123 Avenue Hassan II',
         city: 'Casablanca'
       };
-      
-      // Update patient object with scanned data
-      this.patient.cin = mockedCinData.cin;
-      this.patient.firstName = mockedCinData.firstName;
-      this.patient.lastName = mockedCinData.lastName;
-      this.patient.dateOfBirth = mockedCinData.dateOfBirth;
-      this.patient.address = mockedCinData.address;
-      this.patient.city = mockedCinData.city;
-      
-      this.scanningInProgress = false;
-      this.scanningComplete = true;
-      
-      // Close the scanner dialog after a short delay
-      setTimeout(() => {
-        this.closeScannerDialog();
-      }, 1500);
-    }, 2000);
+
+      return parsedData;
+    } catch (error) {
+      console.error('Data parsing error', error);
+      return null;
+    }
   }
 
-  closeScannerDialog() {
+  closeCinScannerDialog() {
     this.scannerDialog = false;
+    this.scannedCinData = null;
+    this.selectedCamera = undefined;
   }
 }
