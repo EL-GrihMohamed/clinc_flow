@@ -1,152 +1,608 @@
-<p-toolbar styleClass="mb-6">
-    <ng-template #start>
-        <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" />
-        <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined (onClick)="deleteSelectedItems()" [disabled]="!selectedPatients || !selectedPatients.length" />
-    </ng-template>
+<!-- Breadcrumb Navigation -->
+<p-breadcrumb [model]="breadcrumbItems" styleClass="mb-4"></p-breadcrumb>
 
-    <ng-template #end>
-        <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" />
-    </ng-template>
+<!-- Main Toolbar -->
+<p-toolbar styleClass="mb-6">
+  <ng-template #start>
+    <p-button label="New Patient" icon="pi pi-plus" severity="primary" class="mr-2" (onClick)="openNew()" />
+    <p-button 
+      severity="danger" 
+      label="Delete Selected" 
+      icon="pi pi-trash" 
+      [outlined]="true" 
+      (onClick)="deleteSelectedItems()" 
+      [disabled]="!selectedPatients || !selectedPatients.length" 
+    />
+  </ng-template>
+
+  <ng-template #end>
+    <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" />
+  </ng-template>
 </p-toolbar>
 
+<!-- Patients Table -->
 <p-table
-    #dt
-    [value]="patients()"
-    [rows]="10"
-    [columns]="cols"
-    [paginator]="true"
-    [globalFilterFields]="['name', 'country.name', 'representative.name', 'status']"
-    [tableStyle]="{ 'min-width': '75rem' }"
-    [(selection)]="selectedPatients"
-    [rowHover]="true"
-    dataKey="id"
-    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} patients"
-    [showCurrentPageReport]="true"
-    [rowsPerPageOptions]="[10, 20, 30]"
+  #dt
+  [value]="patients()"
+  [rows]="10"
+  [columns]="cols"
+  [paginator]="true"
+  [globalFilterFields]="['firstName', 'lastName', 'fullName', 'ipp', 'cin', 'city']"
+  [tableStyle]="{ 'min-width': '75rem' }"
+  [(selection)]="selectedPatients"
+  [rowHover]="true"
+  dataKey="id"
+  currentPageReportTemplate="Showing {first} to {last} of {totalRecords} patients"
+  [showCurrentPageReport]="true"
+  [rowsPerPageOptions]="[10, 20, 30]"
 >
-    <ng-template #caption>
-        <div class="flex items-center justify-between">
-            <h5 class="m-0">Manage Patients</h5>
-            <p-iconfield>
-                <p-inputicon styleClass="pi pi-search" />
-                <input pInputText type="text" (input)="onGlobalFilter(dt, $event)" placeholder="Search..." />
-            </p-iconfield>
+  <ng-template #caption>
+    <div class="flex items-center justify-between">
+      <h5 class="m-0">Manage Patients</h5>
+      <!-- Moved CIN search to the table caption -->
+      <div class="p-inputgroup search-input">
+        <input type="text" pInputText placeholder="Search by CIN" [(ngModel)]="searchCin">
+        <button type="button" pButton icon="pi pi-search" [loading]="searchInProgress" (click)="searchPatientByCin()"></button>
+      </div>
+    </div>
+    <small *ngIf="noPatientFound" class="p-error">No patient found with this CIN number.</small>
+  </ng-template>
+  
+  <ng-template #header>
+    <tr>
+      <th style="width: 3rem">
+        <p-tableHeaderCheckbox />
+      </th>
+      <th pSortableColumn="ipp" style="min-width: 10rem">
+        IPP
+        <p-sortIcon field="ipp" />
+      </th>
+      <th pSortableColumn="cin" style="min-width: 10rem">
+        CIN
+        <p-sortIcon field="cin" />
+      </th>
+      <th pSortableColumn="fullName" style="min-width: 16rem">
+        Name
+        <p-sortIcon field="fullName" />
+      </th>
+      <th pSortableColumn="gender" style="min-width: 8rem">
+        Gender
+        <p-sortIcon field="gender" />
+      </th>
+      <th pSortableColumn="age" style="min-width: 6rem">
+        Age
+        <p-sortIcon field="age" />
+      </th>
+      <th pSortableColumn="status" style="min-width: 10rem">
+        Status
+        <p-sortIcon field="status" />
+      </th>
+      <th pSortableColumn="assignedDoctor" style="min-width: 12rem">
+        Doctor
+        <p-sortIcon field="assignedDoctor" />
+      </th>
+      <th style="min-width: 10rem"></th>
+    </tr>
+  </ng-template>
+  
+  <ng-template #body let-patient>
+    <tr>
+      <td>
+        <p-tableCheckbox [value]="patient" />
+      </td>
+      <td>{{ patient.ipp }}</td>
+      <td>{{ patient.cin }}</td>
+      <td>{{ patient.fullName }}</td>
+      <td>{{ patient.gender ? formatEnum(patient.gender) : '' }}</td>
+      <td>{{ patient.age }}</td>
+      <td>
+        <p-tag 
+          [value]="getStatusString(patient.status)" 
+          [severity]="getSeverity(patient.status)" 
+        />
+      </td>
+      <td>{{ patient.assignedDoctor }}</td>
+      <td>
+        <div class="flex gap-2">
+          <p-button icon="pi pi-eye" [outlined]="true" pTooltip="View Details" (click)="viewPatientDetails(patient)" />
+          <p-button icon="pi pi-pencil" [outlined]="true" pTooltip="Edit" (click)="editItem(patient)" />
+          <p-button icon="pi pi-trash" severity="danger" [outlined]="true" pTooltip="Delete" (click)="deleteItem(patient)" />
         </div>
-    </ng-template>
-    <ng-template #header>
-        <tr>
-            <th style="width: 3rem">
-                <p-tableHeaderCheckbox />
-            </th>
-            <th style="min-width: 16rem">Code</th>
-            <th pSortableColumn="name" style="min-width:16rem">
-                Name
-                <p-sortIcon field="name" />
-            </th>
-            <th>Image</th>
-            <th pSortableColumn="price" style="min-width: 8rem">
-                Price
-                <p-sortIcon field="price" />
-            </th>
-            <th pSortableColumn="category" style="min-width:10rem">
-                Category
-                <p-sortIcon field="category" />
-            </th>
-            <th pSortableColumn="rating" style="min-width: 12rem">
-                Reviews
-                <p-sortIcon field="rating" />
-            </th>
-            <th pSortableColumn="inventoryStatus" style="min-width: 12rem">
-                Status
-                <p-sortIcon field="inventoryStatus" />
-            </th>
-            <th style="min-width: 12rem"></th>
-        </tr>
-    </ng-template>
-    <ng-template #body let-patient>
-        <tr>
-            <td style="width: 3rem">
-                <p-tableCheckbox [value]="patient" />
-            </td>
-            <td style="min-width: 12rem">{{ patient.code }}</td>
-            <td style="min-width: 16rem">{{ patient.name }}</td>
-            <td>
-                <img [src]="'https://primefaces.org/cdn/primeng/images/demo/patient/' + patient.image" [alt]="patient.name" style="width: 64px" class="rounded" />
-            </td>
-            <td>{{ patient.price }}</td>
-            <td>{{ patient.category }}</td>
-            <td>
-                <p-rating [(ngModel)]="patient.rating" [readonly]="true" />
-            </td>
-            <td>
-                <p-tag [value]="patient.inventoryStatus" [severity]="getSeverity(patient.inventoryStatus)" />
-            </td>
-            <td>
-                <p-button icon="pi pi-pencil" class="mr-2" [outlined]="true" (click)="editItem(patient)" />
-                <p-button icon="pi pi-trash" severity="danger" [outlined]="true" (click)="deleteItem(patient)" />
-            </td>
-        </tr>
-    </ng-template>
+      </td>
+    </tr>
+  </ng-template>
 </p-table>
 
-<p-dialog [(visible)]="patientDialog" [style]="{ width: '450px' }" header="Patient Details" [modal]="true">
-    <ng-template #content>
-        <div class="flex flex-col gap-6">
-            <!-- <img [src]="'https://primefaces.org/cdn/primeng/images/demo/patient/' + patient.image" [alt]="patient.image" class="block m-auto pb-4" *ngIf="patient.image" /> -->
-            <div>
-                <label for="name" class="block font-bold mb-3">Name</label>
-                <input type="text" pInputText id="name" [(ngModel)]="patient.firstName" required autofocus fluid />
-                <small class="text-red-500" *ngIf="submitted && !patient?.firstName">Name is required.</small>
-            </div>
-            <div>
-                <label for="description" class="block font-bold mb-3">Description</label>
-                <textarea id="description" pTextarea [(ngModel)]="patient.firstName" required rows="3" cols="20" fluid></textarea>
-            </div>
+<!-- Patient Dialog -->
+<p-dialog 
+  [(visible)]="patientDialog" 
+  [style]="{ width: '90%', maxWidth: '900px' }" 
+  [header]="dialogMode === 'view' ? 'Patient Details' : dialogMode === 'edit' ? 'Edit Patient' : 'Add Patient'" 
+  [modal]="true" 
+  [draggable]="false" 
+  [resizable]="false"
+>
+  <ng-template #content>
+    <!-- CIN Card Scanner (Only for Add mode) - Removed background color -->
+    <div *ngIf="dialogMode === 'add'" class="mb-4 p-4 rounded">
+      <h3 class="mb-2">CIN Card Scanner</h3>
+      <div class="flex items-center gap-2">
+        <p-button 
+          icon="pi pi-camera" 
+          label="Scan CIN Card" 
+          severity="primary"
+          (onClick)="openCinScanner()" 
+          class="mr-2"
+        ></p-button>
+        <span *ngIf="scanningInProgress" class="flex items-center">
+          <p-progressSpinner [style]="{width: '24px', height: '24px'}" styleClass="mr-2"></p-progressSpinner>
+          Scanning...
+        </span>
+        <span *ngIf="scanningComplete" class="text-green-500">
+          <i class="pi pi-check-circle mr-2"></i>
+          Card scanned successfully!
+        </span>
+      </div>
+    </div>
 
-            <div>
-                <label for="inventoryStatus" class="block font-bold mb-3">Inventory Status</label>
-                <!-- <p-select [(ngModel)]="patient.inventoryStatus" inputId="inventoryStatus" [options]="statuses" optionLabel="label" optionValue="label" placeholder="Select a Status" fluid /> -->
-            </div>
+    <p-tabView [(activeIndex)]="activeTabIndex">
+      <!-- Personal Information Tab -->
+      <p-tabPanel header="Personal Information">
+        <div class="grid grid-cols-12 gap-4">
+          <div class="col-span-6">
+            <label for="firstName" class="block font-bold mb-2">First Name *</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="firstName" 
+              [(ngModel)]="patient.firstName" 
+              required 
+              autofocus 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+            <small class="text-red-500" *ngIf="submitted && !patient?.firstName">First name is required.</small>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="lastName" class="block font-bold mb-2">Last Name *</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="lastName" 
+              [(ngModel)]="patient.lastName" 
+              required 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+            <small class="text-red-500" *ngIf="submitted && !patient?.lastName">Last name is required.</small>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="cin" class="block font-bold mb-2">CIN</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="cin" 
+              [(ngModel)]="patient.cin" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+          
+          <div class="col-span-6">
+            <label for="ipp" class="block font-bold mb-2">IPP</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="ipp" 
+              [(ngModel)]="patient.ipp" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+          
+          <div class="col-span-6">
+            <label for="dateOfBirth" class="block font-bold mb-2">Date of Birth *</label>
+            <p-calendar 
+              id="dateOfBirth" 
+              [(ngModel)]="patient.dateOfBirth" 
+              [showIcon]="true" 
+              dateFormat="dd/mm/yy" 
+              [maxDate]="getCurrentDate()" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-calendar>
+            <small class="text-red-500" *ngIf="submitted && !patient?.dateOfBirth">Date of birth is required.</small>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="gender" class="block font-bold mb-2">Gender</label>
+            <p-dropdown 
+              id="gender" 
+              [(ngModel)]="patient.gender" 
+              [options]="genderOptions" 
+              optionLabel="label" 
+              optionValue="value" 
+              placeholder="Select Gender" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-dropdown>
+          </div>
 
-            <div>
-                <span class="block font-bold mb-4">Category</span>
-                <div class="grid grid-cols-12 gap-4">
-                    <div class="flex items-center gap-2 col-span-6">
-                        <p-radiobutton id="category1" name="category" value="Accessories" [(ngModel)]="patient.isMinor" />
-                        <label for="category1">Accessories</label>
-                    </div>
-                    <div class="flex items-center gap-2 col-span-6">
-                        <p-radiobutton id="category2" name="category" value="Clothing" [(ngModel)]="patient.isMinor" />
-                        <label for="category2">Clothing</label>
-                    </div>
-                    <div class="flex items-center gap-2 col-span-6">
-                        <p-radiobutton id="category3" name="category" value="Electronics" [(ngModel)]="patient.isMinor" />
-                        <label for="category3">Electronics</label>
-                    </div>
-                    <div class="flex items-center gap-2 col-span-6">
-                        <p-radiobutton id="category4" name="category" value="Fitness" [(ngModel)]="patient.isMinor" />
-                        <label for="category4">Fitness</label>
-                    </div>
-                </div>
+          <div class="col-span-6">
+            <label for="phoneNumber" class="block font-bold mb-2">Phone Number</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="phoneNumber" 
+              [(ngModel)]="patient.phoneNumber" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+          
+          <div class="col-span-6">
+            <label class="block font-bold mb-2">Minor Patient</label>
+            <div class="flex items-center gap-2">
+              <p-checkbox 
+                [(ngModel)]="patient.isMinor" 
+                [binary]="true" 
+                inputId="isMinor"
+                [disabled]="dialogMode === 'view'"
+              ></p-checkbox>
+              <label for="isMinor">Patient is a minor</label>
             </div>
-
-            <div class="grid grid-cols-12 gap-4">
-                <div class="col-span-6">
-                    <label for="price" class="block font-bold mb-3">Price</label>
-                    <p-inputnumber id="price" mode="currency" currency="USD" locale="en-US" fluid />
-                </div>
-                <div class="col-span-6">
-                    <label for="quantity" class="block font-bold mb-3">Quantity</label>
-                    <p-inputnumber id="quantity" fluid />
-                </div>
-            </div>
+          </div>
         </div>
-    </ng-template>
+      </p-tabPanel>
+      
+      <!-- Address Information Tab -->
+      <p-tabPanel header="Address">
+        <div class="grid grid-cols-12 gap-4">
+          <div class="col-span-12">
+            <label for="address" class="block font-bold mb-2">Address</label>
+            <textarea 
+              pInputTextarea 
+              id="address" 
+              [(ngModel)]="patient.address" 
+              rows="3" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></textarea>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="city" class="block font-bold mb-2">City</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="city" 
+              [(ngModel)]="patient.city" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+          
+          <div class="col-span-12">
+            <p-divider></p-divider>
+            <div class="flex items-center justify-between">
+              <h3>Emergency Contacts</h3>
+            </div>
+            
+            <div *ngIf="dialogMode !== 'view'" class="grid grid-cols-12 gap-4 mb-4">
+              <div class="col-span-4">
+                <label for="ecName" class="block font-bold mb-2">Name</label>
+                <input 
+                  type="text" 
+                  pInputText 
+                  id="ecName" 
+                  [(ngModel)]="newEmergencyContact.name" 
+                  class="w-full"
+                />
+              </div>
+              
+              <div class="col-span-4">
+                <label for="ecRelationship" class="block font-bold mb-2">Relationship</label>
+                <input 
+                  type="text" 
+                  pInputText 
+                  id="ecRelationship" 
+                  [(ngModel)]="newEmergencyContact.relationship" 
+                  class="w-full"
+                />
+              </div>
+              
+              <div class="col-span-3">
+                <label for="ecPhone" class="block font-bold mb-2">Phone Number</label>
+                <input 
+                  type="text" 
+                  pInputText 
+                  id="ecPhone" 
+                  [(ngModel)]="newEmergencyContact.phoneNumber" 
+                  class="w-full"
+                />
+              </div>
+              
+              <div class="col-span-1 flex items-end">
+                <p-button 
+                  icon="pi pi-plus" 
+                  (click)="addEmergencyContact()" 
+                  [disabled]="!newEmergencyContact.name || !newEmergencyContact.phoneNumber"
+                ></p-button>
+              </div>
+            </div>
+            
+            <div *ngIf="patient.emergencyContacts && patient.emergencyContacts.length > 0">
+              <div *ngFor="let contact of patient.emergencyContacts; let i = index" class="emergency-contact mb-2">
+                <div class="flex justify-between">
+                  <div>
+                    <strong>{{ contact.name }}</strong> ({{ contact.relationship }})
+                    <div>{{ contact.phoneNumber }}</div>
+                  </div>
+                  <p-button *ngIf="dialogMode !== 'view'" icon="pi pi-trash" severity="danger" [outlined]="true" (click)="removeEmergencyContact(i)"></p-button>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="!patient.emergencyContacts || patient.emergencyContacts.length === 0" class="text-gray-500 italic">
+              No emergency contacts added
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+      
+      <!-- Medical Information Tab -->
+      <p-tabPanel header="Medical Information">
+        <div class="grid grid-cols-12 gap-4">
+          <div class="col-span-6">
+            <label for="bloodGroup" class="block font-bold mb-2">Blood Group</label>
+            <p-dropdown 
+              id="bloodGroup" 
+              [(ngModel)]="patient.bloodGroup" 
+              [options]="bloodGroupOptions" 
+              optionLabel="label" 
+              optionValue="value" 
+              placeholder="Select Blood Group" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-dropdown>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="status" class="block font-bold mb-2">Patient Status</label>
+            <p-dropdown 
+              id="status" 
+              [(ngModel)]="patient.status" 
+              [options]="statusOptions" 
+              optionLabel="label" 
+              optionValue="value" 
+              placeholder="Select Status" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-dropdown>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="assignedDoctorId" class="block font-bold mb-2">Assigned Doctor</label>
+            <p-dropdown 
+              id="assignedDoctorId" 
+              [(ngModel)]="patient.assignedDoctorId" 
+              [options]="doctors" 
+              optionLabel="label" 
+              optionValue="value" 
+              placeholder="Select Doctor" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-dropdown>
+          </div>
+          
+          <div class="col-span-6">
+            <label for="referringDoctorId" class="block font-bold mb-2">Referring Doctor</label>
+            <p-dropdown 
+              id="referringDoctorId" 
+              [(ngModel)]="patient.referringDoctorId" 
+              [options]="doctors" 
+              optionLabel="label" 
+              optionValue="value" 
+              placeholder="Select Doctor" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            ></p-dropdown>
+          </div>
+          
+          <div class="col-span-12">
+            <p-divider></p-divider>
+            <h3>Allergies</h3>
+            
+            <div *ngIf="dialogMode !== 'view'" class="flex gap-2 mb-3">
+              <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="newAllergy" 
+                placeholder="Add allergy" 
+                class="flex-grow"
+              />
+              <p-button 
+                icon="pi pi-plus" 
+                (click)="addAllergy()" 
+                [disabled]="!newAllergy"
+              ></p-button>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mb-4">
+              <p-tag 
+                *ngFor="let allergy of patient.allergies" 
+                [value]="allergy" 
+                severity="danger" 
+                [rounded]="true"
+                [removable]="dialogMode !== 'view'"
+                (onRemove)="removeAllergy(allergy)"
+              ></p-tag>
+              <span *ngIf="!patient.allergies || patient.allergies.length === 0" class="text-gray-500 italic">
+                No allergies recorded
+              </span>
+            </div>
+          </div>
+          
+          <div class="col-span-12">
+            <p-divider></p-divider>
+            <h3>Chronic Conditions</h3>
+            
+            <div *ngIf="dialogMode !== 'view'" class="flex gap-2 mb-3">
+              <input 
+                type="text" 
+                pInputText 
+                [(ngModel)]="newChronicCondition" 
+                placeholder="Add condition" 
+                class="flex-grow"
+              />
+              <p-button 
+                icon="pi pi-plus" 
+                (click)="addChronicCondition()" 
+                [disabled]="!newChronicCondition"
+              ></p-button>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+              <p-tag 
+                *ngFor="let condition of patient.chronicConditions" 
+                [value]="condition" 
+                severity="info" 
+                [rounded]="true"
+                [removable]="dialogMode !== 'view'"
+                (onRemove)="removeChronicCondition(condition)"
+              ></p-tag>
+              <span *ngIf="!patient.chronicConditions || patient.chronicConditions.length === 0" class="text-gray-500 italic">
+                No chronic conditions recorded
+              </span>
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+      
+      <!-- Insurance Tab -->
+      <p-tabPanel header="Insurance">
+        <div class="grid grid-cols-12 gap-4">
+          <div class="col-span-12">
+            <div class="flex items-center gap-2 mb-4">
+              <p-checkbox 
+                [(ngModel)]="patient.hasInsurance" 
+                [binary]="true" 
+                inputId="hasInsurance"
+                [disabled]="dialogMode === 'view'"
+              ></p-checkbox>
+              <label for="hasInsurance" class="font-bold">Patient has insurance</label>
+            </div>
+          </div>
+          
+          <div class="col-span-6" *ngIf="patient.hasInsurance">
+            <label for="insuranceName" class="block font-bold mb-2">Insurance Provider</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="insuranceName" 
+              [(ngModel)]="patient.insuranceName" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+          
+          <div class="col-span-6" *ngIf="patient.hasInsurance">
+            <label for="insuranceNumber" class="block font-bold mb-2">Insurance Number</label>
+            <input 
+              type="text" 
+              pInputText 
+              id="insuranceNumber" 
+              [(ngModel)]="patient.insuranceNumber" 
+              class="w-full"
+              [disabled]="dialogMode === 'view'"
+            />
+          </div>
+        </div>
+      </p-tabPanel>
+      
+      <!-- Visit History Tab -->
+      <p-tabPanel header="Visit History">
+        <div *ngIf="patient.visits && patient.visits.length > 0" class="visit-timeline">
+          <p-timeline [value]="patient.visits" align="alternate">
+            <ng-template pTemplate="marker" let-visit>
+              <span class="custom-marker bg-primary flex align-items-center justify-content-center text-white border-circle shadow-2">
+                <i class="pi pi-calendar"></i>
+              </span>
+            </ng-template>
+            <ng-template pTemplate="content" let-visit>
+              <p-card [header]="visit.reason" subheader="{{ visit.date | date: 'medium' }}" class="visit-card">
+                <ng-template pTemplate="content">
+                  <div class="mb-3">
+                    <span class="font-semibold">Doctor:</span> {{ visit.doctorName }}
+                  </div>
+                  <div *ngIf="visit.diagnosis" class="mb-3">
+                    <span class="font-semibold">Diagnosis:</span> {{ visit.diagnosis }}
+                  </div>
+                  <div *ngIf="visit.notes" class="mb-3">
+                    <span class="font-semibold">Notes:</span> {{ visit.notes }}
+                  </div>
+                </ng-template>
+              </p-card>
+            </ng-template>
+          </p-timeline>
+        </div>
+        <div *ngIf="!patient.visits || patient.visits.length === 0" class="text-center p-4">
+          <i class="pi pi-info-circle text-5xl text-gray-300 mb-4"></i>
+          <div class="text-xl text-gray-500">No visit history available</div>
+        </div>
+      </p-tabPanel>
+    </p-tabView>
+  </ng-template>
 
-    <ng-template #footer>
-        <p-button label="Cancel" icon="pi pi-times" text (click)="hideDialog()" />
-        <p-button label="Save" icon="pi pi-check" (click)="saveItem()" />
-    </ng-template>
+  <ng-template #footer>
+    <div class="flex justify-between">
+      <p-button label="Cancel" icon="pi pi-times" [outlined]="true" (click)="hideDialog()"></p-button>
+      <div>
+        <p-button *ngIf="dialogMode === 'view'" label="Edit" icon="pi pi-pencil" (click)="switchToEditMode()" class="mr-2"></p-button>
+        <p-button *ngIf="dialogMode !== 'view'" label="Save" icon="pi pi-check" severity="primary" (click)="saveItem()"></p-button>
+      </div>
+    </div>
+  </ng-template>
 </p-dialog>
 
-<p-confirmdialog [style]="{ width: '450px' }" />
+<!-- CIN Card Scanner Dialog -->
+<p-dialog 
+  [(visible)]="scannerDialog" 
+  [style]="{ width: '500px' }" 
+  header="CIN Card Scanner" 
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <div class="flex flex-col items-center">
+    <div class="scanner-container border-2 border-dashed border-gray-300 p-4 rounded-lg mb-4 text-center" style="height: 250px;">
+      <div *ngIf="!scanningInProgress" class="h-full flex flex-col items-center justify-center">
+        <i class="pi pi-camera text-5xl text-gray-400 mb-2"></i>
+        <p class="text-gray-500">Camera feed will appear here</p>
+      </div>
+      <div *ngIf="scanningInProgress" class="h-full flex flex-col items-center justify-center">
+        <p-progressSpinner [style]="{width: '50px', height: '50px'}" styleClass="mb-2"></p-progressSpinner>
+        <p class="text-gray-700">Scanning CIN card...</p>
+      </div>
+    </div>
+    
+    <div class="flex gap-2">
+      <p-button 
+        icon="pi pi-camera" 
+        label="Start Scanning" 
+        [disabled]="scanningInProgress" 
+        (onClick)="startScanning()"
+      ></p-button>
+      <p-button 
+        icon="pi pi-times" 
+        label="Cancel" 
+        [outlined]="true" 
+        (onClick)="closeScannerDialog()"
+      ></p-button>
+    </div>
+  </div>
+</p-dialog>
+
+<!-- Confirmation Dialog -->
+<p-confirmDialog [style]="{ width: '450px' }"></p-confirmDialog>
