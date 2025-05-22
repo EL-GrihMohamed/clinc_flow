@@ -1,12 +1,25 @@
 // src/app/pages/dashboard/components/kpi-section/kpi-section.component.ts
 
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
+import { ButtonModule } from 'primeng/button';
+import { SkeletonModule } from 'primeng/skeleton';
+import { MessageModule } from 'primeng/message';
 import { KpiService } from '../../../../core/services/kpi.service';
 import { KPICard, KPIData } from '../../../../core/models/kpi.model';
+import { KpiCardComponent } from '../kpi-card/kpi-card.component';
 
 @Component({
   selector: 'app-kpi-section',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ButtonModule,
+    SkeletonModule,
+    MessageModule,
+    KpiCardComponent
+  ],
   template: `
     <div class="grid">
       <div class="col-12">
@@ -19,7 +32,8 @@ import { KPICard, KPIData } from '../../../../core/models/kpi.model';
               (click)="refreshData()"
               severity="secondary"
               size="small"
-              [text]="true">
+              [text]="true"
+              pTooltip="Refresh data">
             </p-button>
             <small class="text-500" *ngIf="lastUpdated">
               Last updated: {{ lastUpdated | date:'short' }}
@@ -53,7 +67,7 @@ import { KPICard, KPIData } from '../../../../core/models/kpi.model';
       </div>
     </ng-template>
 
-    <div class="grid" *ngIf="error">
+    <div class="grid" *ngIf="error && !isLoading">
       <div class="col-12">
         <p-message 
           severity="error" 
@@ -66,6 +80,14 @@ import { KPICard, KPIData } from '../../../../core/models/kpi.model';
   styles: [`
     :host {
       display: block;
+    }
+    
+    .refresh-button {
+      transition: transform 0.3s ease;
+    }
+    
+    .refresh-button:hover {
+      transform: rotate(180deg);
     }
   `]
 })
