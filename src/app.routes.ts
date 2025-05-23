@@ -12,7 +12,8 @@ export const appRoutes: Routes = [
         children: [
             {
                 path: 'dashboard',
-                loadComponent: () => import('./app/pages/dashboard/dashboard').then(m => m.Dashboard),
+                // Change this line to load your comprehensive dashboard
+                loadComponent: () => import('./app/pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
             },
             {
                 path: 'profile',

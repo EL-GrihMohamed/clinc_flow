@@ -17,11 +17,10 @@ import { KpiCardComponent } from './components/kpi-card/kpi-card.component';
 
 @NgModule({
   declarations: [
-    DashboardComponent,
-    KpiSectionComponent,
-    KpiCardComponent
   ],
   imports: [
+    DashboardComponent,
+    KpiSectionComponent,
     CommonModule,
     RouterModule.forChild([
       {
@@ -33,7 +32,8 @@ import { KpiCardComponent } from './components/kpi-card/kpi-card.component';
     CardModule,
     ButtonModule,
     SkeletonModule,
-    MessageModule
+    MessageModule,
+    KpiCardComponent
   ],
   exports: [
     DashboardComponent,

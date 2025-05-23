@@ -29,7 +29,7 @@ export interface KPIData {
 
 export interface KPICard {
   title: string;
-  value: number | string;
+  value: string | number;
   icon: string;
   color: 'primary' | 'success' | 'warning' | 'danger' | 'info';
   trend?: {

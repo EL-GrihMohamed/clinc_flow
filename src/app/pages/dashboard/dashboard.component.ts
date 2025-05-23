@@ -1,7 +1,7 @@
 // src/app/pages/dashboard/dashboard.component.ts
 
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
 import { KpiSectionComponent } from './components/kpi-section/kpi-section.component';
 import { TodayScheduleComponent } from './components/today-schedule/today-schedule.component';
 import { PatientActivitiesComponent } from './components/patient-activities/patient-activities.component';
@@ -21,6 +21,7 @@ import { PatientStatusOverviewComponent } from './components/patient-status-over
     MedicalAlertsComponent,
     PatientStatusOverviewComponent
   ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
   template: `
     <div class="grid">
       <!-- Header Section -->
@@ -38,13 +39,12 @@ import { PatientStatusOverviewComponent } from './components/patient-status-over
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- KPI Section -->
-    <app-kpi-section></app-kpi-section>
+      <!-- KPI Section -->
+      <div class="col-12">
+        <app-kpi-section></app-kpi-section>
+      </div>
 
-    <!-- Main Dashboard Widgets -->
-    <div class="grid">
       <!-- Patient Status Overview -->
       <div class="col-12 lg:col-6">
         <app-patient-status-overview></app-patient-status-overview>
